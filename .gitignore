@@ -1,0 +1,6 @@
+.env
+.cache
+--Administradores.txt
+ffmpeg.exe
+__pycache__
+*.db
