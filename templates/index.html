@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zazy DJ - Panel de Control</title>
+    <style>
+        body {
+            /* Fondo basado en los tonos oscuros de la pared de ladrillos y la pista */
+            background: linear-gradient(135deg, #0d0614 0%, #1b1035 100%);
+            color: #f2f3f5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        .tarjeta {
+            /* Contenedor translúcido con brillo magenta y cian */
+            background-color: rgba(20, 15, 40, 0.7);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.15), 0 0 30px rgba(0, 255, 255, 0.1);
+            border: 1px solid rgba(255, 0, 255, 0.3);
+            text-align: center;
+            max-width: 400px;
+            backdrop-filter: blur(12px);
+        }
+        
+        /* CONTENEDOR DEL AVATAR Y EL ANILLO DE ESTADO */
+        .avatar-container {
+            margin: 0 auto 25px auto;
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            padding: 6px;
+            transition: all 0.8s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Estado 1: Apagado / Cargando */
+        .avatar-container.apagado {
+            border: 4px solid #4f545c;
+            box-shadow: 0 0 15px rgba(79, 84, 92, 0.5);
+            filter: grayscale(80%) brightness(0.7);
+        }
+        
+        /* Estado 2: Encendido */
+        .avatar-container.encendido {
+            border: 4px solid #23a559; /* Verde Discord */
+            box-shadow: 0 0 25px rgba(35, 165, 89, 0.8), inset 0 0 15px rgba(35, 165, 89, 0.5);
+            filter: grayscale(0%) brightness(1);
+        }
+
+        .avatar-img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        h1 {
+            /* Letras en cian neón imitando el logo de Discord de la imagen */
+            color: #00ffff;
+            text-shadow: 0 0 12px rgba(0, 255, 255, 0.6);
+            margin-top: 0;
+            letter-spacing: 1px;
+        }
+        .texto-zazy {
+            /* Detalles en magenta neón imitando el cartel de OG */
+            color: #ff00ff;
+            text-shadow: 0 0 12px rgba(255, 0, 255, 0.6);
+        }
+        p {
+            color: #b5bac1;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+
+        .estado-texto {
+            font-weight: bold;
+            font-size: 1.1em;
+            letter-spacing: 1px;
+            transition: color 0.5s ease;
+            text-transform: uppercase;
+        }
+        .estado-texto.iniciando {
+            color: #80848e;
+        }
+        .estado-texto.activo {
+            color: #23a559;
+            text-shadow: 0 0 10px rgba(35, 165, 89, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="tarjeta">
+        <!-- El anillo gris empieza aquí. Asegúrate de poner el nombre exacto de tu archivo en el src -->
+        <div class="avatar-container apagado" id="anillo-estado">
+            <img src="../static/fondodjzazy.png" alt="Zazy DJ" class="avatar-img">
+        </div>
+        
+        <h1>Panel de <span class="texto-zazy">ZAZY</span></h1>
+        <p>Señal enviada a los servidores. La mesa de mezclas se está encendiendo para reventar los canales de voz de Discord.</p>
+        
+        <div class="estado-texto iniciando" id="texto-estado">⚪ Despertando sistema...</div>
+    </div>
+
+    <!-- Script de animación -->
+    <script>
+        // Simulamos el tiempo de encendido del servidor (1.8 segundos)
+        setTimeout(() => {
+            const anillo = document.getElementById('anillo-estado');
+            const texto = document.getElementById('texto-estado');
+            
+            // Cambiamos las clases CSS para encender los colores
+            anillo.classList.remove('apagado');
+            anillo.classList.add('encendido');
+            
+            texto.classList.remove('iniciando');
+            texto.classList.add('activo');
+            texto.innerHTML = '🟢 MODO DJ: ONLINE';
+        }, 1800);
+    </script>
+</body>
+</html>
