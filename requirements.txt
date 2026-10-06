@@ -4,3 +4,4 @@ yt-dlp
 ytmusicapi
 psycopg2-binary
 python-dotenv
+flask
