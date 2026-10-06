@@ -1,13 +1,19 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import sqlite3
+import psycopg2
+import os
 import re
 import yt_dlp
+from dotenv import load_dotenv
 
-# Configuración de la BBDD para este módulo
-conexion = sqlite3.connect('biblioteca.db')
+load_dotenv()
+
+# Configuración de la BBDD para este módulo (PostgreSQL)
+conexion = psycopg2.connect(os.getenv("DATABASE_URL"))
+conexion.autocommit = True
 cursor = conexion.cursor()
+
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS canciones (
         enlace TEXT PRIMARY KEY,
@@ -61,10 +67,9 @@ class Admin(commands.Cog):
             return
 
         try:
-            cursor.execute("INSERT INTO canciones (enlace, nombre, artista) VALUES (?, ?, ?)", (enlace, nombre, artista))
-            conexion.commit()
+            cursor.execute("INSERT INTO canciones (enlace, nombre, artista) VALUES (%s, %s, %s)", (enlace, nombre, artista))
             await interaction.followup.send(f"✅ ¡Éxito! **{nombre}** de **{artista}** guardada en tu base de datos.")
-        except sqlite3.IntegrityError:
+        except psycopg2.IntegrityError:
             await interaction.followup.send("⚠️ Esa canción (enlace) ya estaba registrada.")
 
 # Función obligatoria para que main.py pueda cargar este archivo

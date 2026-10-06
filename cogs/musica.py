@@ -4,14 +4,18 @@ import os
 from discord.ext import commands, tasks
 from discord import app_commands
 import asyncio
-import sqlite3
+import psycopg2
 import re
 import yt_dlp
 from ytmusicapi import YTMusic
+from dotenv import load_dotenv
 
+load_dotenv()
 ytmusic = YTMusic()
 
-conexion = sqlite3.connect('biblioteca.db')
+# Conexión PostgreSQL
+conexion = psycopg2.connect(os.getenv("DATABASE_URL"))
+conexion.autocommit = True
 cursor = conexion.cursor()
 
 def extraer_video_id(url_o_id):
@@ -119,7 +123,7 @@ class Musica(commands.Cog):
             if not current.strip(): return []
             opciones = []
             try:
-                cursor.execute("SELECT nombre, artista, enlace FROM canciones WHERE nombre LIKE ? OR artista LIKE ?", (f"%{current}%", f"%{current}%"))
+                cursor.execute("SELECT nombre, artista, enlace FROM canciones WHERE nombre ILIKE %s OR artista ILIKE %s", (f"%{current}%", f"%{current}%"))
                 for fila in cursor.fetchall():
                     nombre_db, artista_db, enlace_db = fila
                     texto_visual = f"💾 {nombre_db} - {artista_db}"
