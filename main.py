@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 import os
 from dotenv import load_dotenv
+from keep_alive import keep_alive  # <-- IMPORTACIÓN AÑADIDA AQUÍ
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -42,4 +43,5 @@ if __name__ == '__main__':
     if TOKEN is None:
         print("⚠️ ERROR: No se ha encontrado el DISCORD_TOKEN")
     else:
+        keep_alive()  # <-- LLAMADA AL MINI-SERVIDOR AÑADIDA AQUÍ
         bot.run(TOKEN)
