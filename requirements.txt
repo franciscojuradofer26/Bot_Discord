@@ -3,5 +3,6 @@ PyNaCl
 yt-dlp
 ytmusicapi
 psycopg2-binary
+davey
 python-dotenv
 flask
