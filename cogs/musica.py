@@ -9,10 +9,13 @@ import re
 import yt_dlp
 from ytmusicapi import YTMusic
 from dotenv import load_dotenv
+import imageio_ffmpeg  # <-- AÑADE ESTO
 
 load_dotenv()
 ytmusic = YTMusic()
 
+# Conseguimos la ruta correcta del ffmpeg sin importar si es Windows o Linux
+ruta_ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()  # <-- AÑADE ESTO
 # Conexión PostgreSQL
 conexion = psycopg2.connect(os.getenv("DATABASE_URL"))
 conexion.autocommit = True
@@ -73,8 +76,13 @@ class Musica(commands.Cog):
             siguiente_cancion = self.colas[guild_id].pop(0) 
             url_youtube = siguiente_cancion['url']
             titulo = siguiente_cancion['titulo']
-            opciones_ydl = {'format': 'bestaudio/best', 'noplaylist': True, 'quiet': True, 'no_warnings': True}
-            
+            opciones_ydl = {
+                'format': 'bestaudio/best', 
+                'noplaylist': True, 
+                'quiet': True, 
+                'no_warnings': True,
+                'extractor_args': {'youtube': ['player_client=android']}
+            }   
             try:
                 def extraer():
                     with yt_dlp.YoutubeDL(opciones_ydl) as ydl:
@@ -102,8 +110,7 @@ class Musica(commands.Cog):
                     'before_options': f'-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -user_agent "{user_agent}"', 
                     'options': '-vn'
                 }
-                fuente_audio = discord.FFmpegPCMAudio(url_audio, executable="./ffmpeg.exe", **opciones_ffmpeg)
-
+                fuente_audio = discord.FFmpegPCMAudio(url_audio, executable=ruta_ffmpeg, **opciones_ffmpeg)
                 def despues_de_reproducir(error):
                     if error: print(f"Error FFmpeg: {error}")
                     coro = self.reproducir_siguiente(guild_id, vc, canal_texto)
@@ -157,7 +164,13 @@ class Musica(commands.Cog):
 
         canal_voz = interaction.user.voice.channel
         url_youtube = f"https://www.youtube.com/watch?v={cancion}"
-        opciones_ydl = {'format': 'bestaudio/best', 'noplaylist': True, 'quiet': True, 'no_warnings': True}
+        opciones_ydl = {
+            'format': 'bestaudio/best', 
+            'noplaylist': True, 
+            'quiet': True, 
+            'no_warnings': True,
+            'extractor_args': {'youtube': ['player_client=android']}
+        }
 
         try:
             vc = interaction.guild.voice_client
@@ -198,7 +211,7 @@ class Musica(commands.Cog):
                     'before_options': f'-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -user_agent "{user_agent}"', 
                     'options': '-vn'
                 }
-                fuente_audio = discord.FFmpegPCMAudio(url_audio, executable="./ffmpeg.exe", **opciones_ffmpeg)
+                fuente_audio = discord.FFmpegPCMAudio(url_audio, executable=ruta_ffmpeg, **opciones_ffmpeg)
                 canal_texto = interaction.channel
 
                 def despues_de_reproducir(error):
@@ -325,7 +338,13 @@ class Musica(commands.Cog):
         canal_voz = interaction.user.voice.channel
         url_youtube = f"https://www.youtube.com/watch?v={cancion}"
         
-        opciones_ydl = {'format': 'bestaudio/best', 'noplaylist': True, 'quiet': True, 'no_warnings': True}
+        opciones_ydl = {
+            'format': 'bestaudio/best', 
+            'noplaylist': True, 
+            'quiet': True, 
+            'no_warnings': True,
+            'extractor_args': {'youtube': ['player_client=android']}
+        }
 
         try:
             vc = interaction.guild.voice_client
@@ -370,7 +389,7 @@ class Musica(commands.Cog):
                     'before_options': f'-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -user_agent "{user_agent}"', 
                     'options': '-vn'
                 }
-                fuente_audio = discord.FFmpegPCMAudio(url_audio, executable="./ffmpeg.exe", **opciones_ffmpeg)
+                fuente_audio = discord.FFmpegPCMAudio(url_audio, executable=ruta_ffmpeg, **opciones_ffmpeg)
                 canal_texto = interaction.channel
 
                 def despues_de_reproducir(error):
