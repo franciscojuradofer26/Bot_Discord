@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 import os
 from dotenv import load_dotenv
-from keep_alive import keep_alive  # <-- IMPORTACIÓN AÑADIDA AQUÍ
+from keep_alive import keep_alive, cambiar_estado
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -20,6 +20,7 @@ class MiBot(commands.Bot):
         await self.load_extension('cogs.musica')
 
     async def on_ready(self):
+        cambiar_estado("encendido")
         print("----------------------------------------")
         print(f'🟢 ¡Conectado exitosamente como {self.user}!')
         try:
@@ -42,6 +43,11 @@ async def on_app_command_error(interaction: discord.Interaction, error: discord.
 if __name__ == '__main__':
     if TOKEN is None:
         print("⚠️ ERROR: No se ha encontrado el DISCORD_TOKEN")
+        cambiar_estado("error")
     else:
-        keep_alive()  # <-- LLAMADA AL MINI-SERVIDOR AÑADIDA AQUÍ
-        bot.run(TOKEN)
+        keep_alive()
+        try:
+            bot.run(TOKEN)
+        except Exception as e:
+            print(f"Error fatal al arrancar: {e}")
+            cambiar_estado("error")
