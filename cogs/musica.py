@@ -9,13 +9,17 @@ import re
 import yt_dlp
 from ytmusicapi import YTMusic
 from dotenv import load_dotenv
-import imageio_ffmpeg  # <-- AÑADE ESTO
+import platform
 
 load_dotenv()
 ytmusic = YTMusic()
 
-# Conseguimos la ruta correcta del ffmpeg sin importar si es Windows o Linux
-ruta_ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()  # <-- AÑADE ESTO
+# Si estamos en tu portátil (Windows), usa el exe. Si estamos en Render (Linux), usa la versión sin extensión.
+if platform.system() == "Windows":
+    ruta_ffmpeg = "./ffmpeg.exe"
+else:
+    ruta_ffmpeg = "./ffmpeg"
+
 # Conexión PostgreSQL
 conexion = psycopg2.connect(os.getenv("DATABASE_URL"))
 conexion.autocommit = True
