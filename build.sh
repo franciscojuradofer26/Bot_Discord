@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 1. Instalar las librerías de Python
-pip install -r requirements.txt
+pip install --no-cache-dir -U -r requirements.txt
 
 # 2. Descargar la versión estática de FFmpeg para Linux (~70MB)
 echo "Descargando FFmpeg para Linux..."
