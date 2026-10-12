@@ -5,7 +5,9 @@ import psycopg2
 import os
 import re
 import yt_dlp
+import asyncio
 from dotenv import load_dotenv
+from utilidades_yt import opciones_yt
 
 load_dotenv()
 
@@ -53,16 +55,15 @@ class Admin(commands.Cog):
             await interaction.followup.send("❌ **Error:** El enlace no tiene un formato válido de YouTube.")
             return
 
-        opciones_prueba = {
-            'quiet': True, 
-            'simulate': True, 
-            'noplaylist': True,
-            'extractor_args': {'youtube': ['player_client=android']}
-        }
-        try:
-            with yt_dlp.YoutubeDL(opciones_prueba) as ydl:
+        # Comprobamos que el vídeo existe (sin bloquear el bot mientras tanto)
+        def comprobar():
+            with yt_dlp.YoutubeDL(opciones_yt(simulate=True)) as ydl:
                 ydl.extract_info(enlace, download=False)
-        except Exception:
+
+        try:
+            await asyncio.to_thread(comprobar)
+        except Exception as e:
+            print(f"Error comprobando enlace en /register: {e}")
             await interaction.followup.send("❌ **Error:** El enlace tiene formato válido, pero YouTube lo ha borrado, es privado o está bloqueado.")
             return
 

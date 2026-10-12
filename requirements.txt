@@ -1,6 +1,7 @@
 discord.py
 PyNaCl
 git+https://github.com/yt-dlp/yt-dlp.git
+yt-dlp-ejs
 ytmusicapi
 psycopg2-binary
 davey
