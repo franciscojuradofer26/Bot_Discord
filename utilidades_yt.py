@@ -27,7 +27,6 @@ MODO_DEBUG = os.getenv("YTDLP_DEBUG") == "1"
 def _sanitizar_texto_cookies(texto_bruto: str) -> str:
     """
     Repara el formato Netscape si el navegador o Render convirtieron los tabuladores (\t) en espacios.
-    Cada línea válida de cookies requiere exactamente 7 campos separados por tabuladores.
     """
     lineas_limpias = ['# Netscape HTTP Cookie File']
     for linea in texto_bruto.splitlines():
@@ -36,7 +35,6 @@ def _sanitizar_texto_cookies(texto_bruto: str) -> str:
             continue
         partes = re.split(r'\s+', linea)
         if len(partes) >= 7:
-            # Los primeros 6 campos están limpios, el valor puede contener espacios
             lineas_limpias.append('\t'.join(partes[:6] + [' '.join(partes[6:])]))
         elif '\t' in linea:
             lineas_limpias.append(linea)
@@ -50,7 +48,6 @@ def _validar_cookies(ruta_archivo: str) -> tuple[int, bool]:
         cj.load(ruta_archivo, ignore_discard=True, ignore_expires=True)
         conteo = len(cj)
         nombres = {c.name for c in cj}
-        # YouTube exige LOGIN_INFO o algún SAPISID para considerar la sesión como autenticada
         tiene_sesion = 'LOGIN_INFO' in nombres or any('SAPISID' in n for n in nombres)
         return conteo, tiene_sesion
     except Exception as e:
@@ -107,6 +104,24 @@ TOTAL_COOKIES, SESION_VALIDA = _validar_cookies(ARCHIVO_COOKIES) if ARCHIVO_COOK
 HAY_COOKIES = ARCHIVO_COOKIES is not None and TOTAL_COOKIES > 0
 
 
+def obtener_cadena_cookies() -> str:
+    """Genera la cabecera Cookie: formateada para que FFmpeg pueda autenticarse con el CDN de YouTube."""
+    if not ARCHIVO_COOKIES or not os.path.exists(ARCHIVO_COOKIES):
+        return ""
+    try:
+        cj = http.cookiejar.MozillaCookieJar()
+        cj.load(ARCHIVO_COOKIES, ignore_discard=True, ignore_expires=True)
+        # Deduplicamos nombres de cookies para no inflar la cabecera HTTP
+        cookies_dict = {}
+        for c in cj:
+            if any(d in c.domain for d in ['youtube', 'google', 'googlevideo']):
+                cookies_dict[c.name] = c.value
+        return "; ".join(f"{k}={v}" for k, v in cookies_dict.items())
+    except Exception as e:
+        print(f"⚠️ Error al formatear cookies para FFmpeg: {e}")
+        return ""
+
+
 def _detectar_js_runtime():
     """Detecta un runtime de JS (Deno o Node) para que yt-dlp descifre las firmas de YouTube."""
     if os.path.exists(RUTA_DENO_LOCAL):
@@ -122,7 +137,6 @@ def _detectar_js_runtime():
 
 JS_TIPO, JS_PATH = _detectar_js_runtime()
 
-# Diagnóstico claro en los logs de Render
 print("----------------------------------------")
 print(f"🎬 yt-dlp versión: {yt_dlp.version.__version__}")
 if JS_TIPO and JS_PATH:
@@ -133,9 +147,9 @@ else:
 if HAY_COOKIES and SESION_VALIDA:
     print(f"🍪 Cookies: ¡Sesión activa detectada! ({TOTAL_COOKIES} cookies cargadas)")
 elif HAY_COOKIES and not SESION_VALIDA:
-    print(f"⚠️ Cookies: Se cargaron {TOTAL_COOKIES} cookies pero NO contienen sesión activa de YouTube (falta LOGIN_INFO / SAPISID).")
+    print(f"⚠️ Cookies: Se cargaron {TOTAL_COOKIES} cookies pero NO contienen sesión activa de YouTube.")
 else:
-    print("ℹ️ Cookies: No hay cookies activas. Operando en modo móvil anónimo (Android).")
+    print("ℹ️ Cookies: No hay cookies activas.")
 
 print(f"🐞 Modo debug yt-dlp: {'activado' if MODO_DEBUG else 'desactivado'}")
 print("----------------------------------------")
@@ -143,7 +157,7 @@ print("----------------------------------------")
 
 def opciones_yt(**extra):
     """
-    Opciones de yt-dlp optimizadas dinámicamente según si hay sesión iniciada o modo anónimo.
+    Opciones de yt-dlp. Cuando hay cookies válidas usamos los clientes web autenticados.
     """
     opciones = {
         'format': 'bestaudio/best',
@@ -158,19 +172,17 @@ def opciones_yt(**extra):
     if JS_TIPO and JS_PATH:
         opciones['js_runtimes'] = {JS_TIPO: {'path': JS_PATH}}
 
-    # Si hay cookies con sesión válida de YouTube, usamos clientes de navegador autenticados
     if HAY_COOKIES and SESION_VALIDA and ARCHIVO_COOKIES:
         opciones['cookiefile'] = ARCHIVO_COOKIES
         opciones['extractor_args'] = {
             'youtube': {
-                'player_client': ['web_embedded', 'tv_downgraded', 'web', 'android']
+                'player_client': ['web_embedded', 'tv_downgraded', 'web']
             }
         }
     else:
-        # Si NO hay cookies o son anónimas, usamos el cliente Android que elude el muro anti-bot de escritorio
         opciones['extractor_args'] = {
             'youtube': {
-                'player_client': ['android', 'android_vr'],
+                'player_client': ['android'],
                 'player_skip': ['webpage']
             }
         }
@@ -191,7 +203,7 @@ def opciones_yt_fallback(**extra):
         'remote_components': ['ejs:github'],
         'extractor_args': {
             'youtube': {
-                'player_client': ['android', 'visionos', 'web']
+                'player_client': ['visionos', 'web']
             }
         }
     }

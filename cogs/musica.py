@@ -12,15 +12,30 @@ import imageio_ffmpeg
 from discord.ext import commands, tasks
 from discord import app_commands
 
-from utilidades_yt import opciones_yt, opciones_yt_fallback
+import io
+import time
+import subprocess
+import sys
+from utilidades_yt import opciones_yt, opciones_yt_fallback, obtener_cadena_cookies
 from keep_alive import actualizar_info
 from db import buscar_canciones
+
+if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
 
 load_dotenv()
 ytmusic = YTMusic()
 
 # ffmpeg viene dentro del paquete imageio-ffmpeg (sirve en Windows y en Linux/Render)
 ruta_ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+try:
+    if os.path.exists(ruta_ffmpeg):
+        os.chmod(ruta_ffmpeg, 0o755)
+except Exception:
+    pass
 
 
 def obtener_video_id(url_o_id: str) -> str | None:
@@ -127,17 +142,90 @@ def obtener_url_stream(info):
     return None
 
 
+class FuenteAudioConLog(discord.FFmpegAudio):
+    def __init__(self, source: str, *, executable: str = 'ffmpeg', headers: dict = None, cookie_str: str = ""):
+        self.stderr_buf = io.BytesIO()
+        args = [
+            '-reconnect', '1',
+            '-reconnect_streamed', '1',
+            '-reconnect_delay_max', '5'
+        ]
+
+        cabeceras = []
+        user_agent = None
+        if headers:
+            for k, v in headers.items():
+                if k.lower() == 'user-agent':
+                    user_agent = v
+                elif k.lower() != 'cookie':
+                    cabeceras.append(f"{k}: {v}")
+
+        if not user_agent:
+            user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+        args.extend(['-user_agent', user_agent])
+
+        if cookie_str:
+            cabeceras.append(f"Cookie: {cookie_str}")
+
+        if cabeceras:
+            # En FFmpeg la opción -headers requiere pares separados por \r\n seguidos de \r\n al final
+            texto_headers = "\r\n".join(cabeceras) + "\r\n"
+            args.extend(['-headers', texto_headers])
+
+        args.append('-i')
+        args.append(source)
+        args.extend((
+            '-vn',
+            '-f', 's16le',
+            '-ar', '48000',
+            '-ac', '2',
+            '-loglevel', 'warning',
+            '-blocksize', str(discord.player.OpusEncoder.FRAME_SIZE)
+        ))
+        args.append('pipe:1')
+
+        super().__init__(
+            source,
+            executable=executable,
+            args=args,
+            stdin=subprocess.DEVNULL,
+            stderr=self.stderr_buf
+        )
+        self.primer_paquete = True
+
+    def read(self) -> bytes:
+        ret = self._stdout.read(discord.player.OpusEncoder.FRAME_SIZE)
+        if self.primer_paquete:
+            self.primer_paquete = False
+            if not ret or len(ret) != discord.player.OpusEncoder.FRAME_SIZE:
+                time.sleep(0.1)
+                err = self.stderr_buf.getvalue().decode(errors='ignore').strip()
+                print(f"❌ Error crítico de FFmpeg al iniciar audio: {err}")
+            else:
+                print(f"🔊 FFmpeg transmitiendo audio con éxito ({len(ret)} bytes)")
+        if len(ret) != discord.player.OpusEncoder.FRAME_SIZE:
+            return b''
+        return ret
+
+    def is_opus(self) -> bool:
+        return False
+
+
 def crear_fuente_audio(info):
     url_stream = obtener_url_stream(info)
     if not url_stream:
         raise ValueError("No se pudo obtener el enlace de streaming de audio.")
-    headers = info.get('http_headers', {})
-    user_agent = headers.get('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
-    opciones_ffmpeg = {
-        'before_options': f'-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -user_agent "{user_agent}"',
-        'options': '-vn'
-    }
-    return discord.FFmpegPCMAudio(url_stream, executable=ruta_ffmpeg, **opciones_ffmpeg)
+
+    headers_dict = info.get('http_headers', {})
+    cookie_str = obtener_cadena_cookies()
+
+    return FuenteAudioConLog(
+        url_stream,
+        executable=ruta_ffmpeg,
+        headers=headers_dict,
+        cookie_str=cookie_str
+    )
 
 
 async def extraer_info(url):
@@ -217,10 +305,15 @@ class Musica(commands.Cog):
         self.control_inactividad.cancel()
         self.auto_keepalive_render.cancel()
 
-    def _al_terminar(self, guild_id, vc, canal_texto):
+    def _al_terminar(self, guild_id, vc, canal_texto, fuente=None):
         def despues_de_reproducir(error):
             if error:
-                print(f"Error FFmpeg: {error}")
+                print(f"❌ Error en reproducción FFmpeg: {error}")
+            if fuente and hasattr(fuente, 'stderr_buf'):
+                time.sleep(0.05)
+                err_salida = fuente.stderr_buf.getvalue().decode(errors='ignore').strip()
+                if err_salida:
+                    print(f"📋 FFmpeg stderr log: {err_salida[-500:]}")
             coro = self.reproducir_siguiente(guild_id, vc, canal_texto)
             asyncio.run_coroutine_threadsafe(coro, self.bot.loop)
         return despues_de_reproducir
@@ -235,7 +328,7 @@ class Musica(commands.Cog):
             try:
                 info = await extraer_info(siguiente_cancion['url'])
                 fuente_audio = crear_fuente_audio(info)
-                vc.play(fuente_audio, after=self._al_terminar(guild_id, vc, canal_texto))
+                vc.play(fuente_audio, after=self._al_terminar(guild_id, vc, canal_texto, fuente=fuente_audio))
                 
                 # Actualizamos estado web
                 actualizar_info(
@@ -340,7 +433,7 @@ class Musica(commands.Cog):
                 actualizar_info(cola_longitud=len(self.colas[guild_id]), en_voz=True)
             else:
                 fuente_audio = crear_fuente_audio(info)
-                vc.play(fuente_audio, after=self._al_terminar(guild_id, vc, interaction.channel))
+                vc.play(fuente_audio, after=self._al_terminar(guild_id, vc, interaction.channel, fuente=fuente_audio))
                 actualizar_info(cancion=titulo, cola_longitud=len(self.colas.get(guild_id, [])), en_voz=True)
                 await interaction.followup.send(embed=crear_embed(info, titulo, "💿 Poniendo temazo"), view=ReproductorView())
 
