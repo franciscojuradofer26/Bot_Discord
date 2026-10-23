@@ -141,7 +141,7 @@ def crear_fuente_audio(info):
 
 
 async def extraer_info(url):
-    """Extrae los metadatos y stream de audio con yt-dlp, con estrategia de cliente Android y respaldo multicliente."""
+    """Extrae los metadatos y stream de audio con yt-dlp, con estrategia optimizada y respaldo multicliente."""
     def extraer():
         try:
             with yt_dlp.YoutubeDL(opciones_yt()) as ydl:
@@ -152,14 +152,18 @@ async def extraer_info(url):
                         return entradas[0]
                 return datos
         except Exception as e_primero:
-            print(f"Aviso: Extracción con cliente principal falló ({e_primero}). Intentando cliente de respaldo...")
-            with yt_dlp.YoutubeDL(opciones_yt_fallback()) as ydl:
-                datos = ydl.extract_info(url, download=False)
-                if datos and 'entries' in datos:
-                    entradas = [e for e in datos['entries'] if e]
-                    if entradas:
-                        return entradas[0]
-                return datos
+            print(f"⚠️ Aviso: Extracción principal falló ({e_primero}). Intentando estrategia de respaldo...")
+            try:
+                with yt_dlp.YoutubeDL(opciones_yt_fallback()) as ydl:
+                    datos = ydl.extract_info(url, download=False)
+                    if datos and 'entries' in datos:
+                        entradas = [e for e in datos['entries'] if e]
+                        if entradas:
+                            return entradas[0]
+                    return datos
+            except Exception as e_segundo:
+                print(f"⚠️ Aviso: Extracción de respaldo también falló ({e_segundo})")
+                raise e_primero
     return await asyncio.to_thread(extraer)
 
 
@@ -343,11 +347,18 @@ class Musica(commands.Cog):
         except Exception as e:
             error_msg = str(e)
             print(f"Error en play/playnext: {error_msg}")
-            if "Sign in to confirm you're not a bot" in error_msg or "confirm you're not a bot" in error_msg:
+            es_bot_error = any(frase in error_msg.lower() for frase in [
+                "confirm you're not a bot",
+                "confirm you’re not a bot",
+                "sign in to confirm",
+                "not a bot",
+                "too many requests"
+            ])
+            if es_bot_error:
                 await interaction.followup.send(
-                    "⚠️ **YouTube ha bloqueado la conexión desde el servidor en la nube (Detección Anti-Bot).**\n"
-                    "Los servidores de Render comparten IPs que YouTube marca como bots.\n"
-                    "👉 **Solución:** Sube tus cookies de YouTube (`cookies.txt` o la variable `YOUTUBE_COOKIES`) en Render para identificarte como usuario real."
+                    "⚠️ **YouTube ha bloqueado la conexión desde el servidor (Detección Anti-Bot).**\n"
+                    "Los servidores de Render están en AWS y YouTube pide autenticación de usuario real.\n"
+                    "👉 **Solución:** Sube tus cookies de YouTube con la sesión iniciada en tu cuenta (`cookies.txt` o variable `YOUTUBE_COOKIES`) en Render."
                 )
             else:
                 await interaction.followup.send(f"❌ Ocurrió un error: {error_msg[:1800]}")
