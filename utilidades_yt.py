@@ -30,12 +30,10 @@ def _preparar_cookies():
     2. Secret File de Render (/etc/secrets/cookies.txt).
     3. Archivo local cookies.txt (para pruebas en tu PC).
     """
-    # 1. Variable de entorno (muy cómodo en Render)
     env_cookies = os.getenv("YOUTUBE_COOKIES") or os.getenv("COOKIES_DATA")
     if env_cookies and env_cookies.strip():
         try:
             contenido = env_cookies.strip()
-            # Si viene en base64, lo decodificamos
             if not contenido.startswith("# Netscape") and "\t" not in contenido:
                 try:
                     contenido = base64.b64decode(contenido).decode('utf-8')
@@ -47,7 +45,6 @@ def _preparar_cookies():
         except Exception as e:
             print(f"⚠️ Error cargando cookies desde variable de entorno: {e}")
 
-    # 2. Secret File de Render (/etc/secrets/cookies.txt)
     if os.path.exists(RUTA_COOKIES_SECRETO):
         try:
             shutil.copy(RUTA_COOKIES_SECRETO, RUTA_COOKIES_TEMP)
@@ -55,7 +52,6 @@ def _preparar_cookies():
         except Exception as e:
             print(f"⚠️ No se pudo copiar cookies de Render: {e}")
 
-    # 3. Archivo cookies.txt local para desarrollo en PC
     elif os.path.exists(RUTA_COOKIES_LOCAL):
         try:
             shutil.copy(RUTA_COOKIES_LOCAL, RUTA_COOKIES_TEMP)
@@ -72,14 +68,11 @@ HAY_COOKIES = ARCHIVO_COOKIES is not None
 
 def _detectar_js_runtime():
     """Detecta un runtime de JS (Deno o Node) para que yt-dlp descifre las firmas de YouTube."""
-    # 1. Deno descargado por build.sh
     if os.path.exists(RUTA_DENO_LOCAL):
         return 'deno', RUTA_DENO_LOCAL
-    # 2. Deno en PATH
     deno_sistema = shutil.which("deno")
     if deno_sistema:
         return 'deno', deno_sistema
-    # 3. Node en PATH
     node_sistema = shutil.which("node") or shutil.which("nodejs")
     if node_sistema:
         return 'node', node_sistema
@@ -88,20 +81,23 @@ def _detectar_js_runtime():
 
 JS_TIPO, JS_PATH = _detectar_js_runtime()
 
-# Diagnóstico de arranque en los logs
 print("----------------------------------------")
 print(f"🎬 yt-dlp versión: {yt_dlp.version.__version__}")
 if JS_TIPO and JS_PATH:
     print(f"🦕 JS Runtime ({JS_TIPO}): encontrado ({JS_PATH})")
 else:
-    print("⚠️ JS Runtime: NO encontrado (YouTube podría requerir Deno o Node)")
-print(f"🍪 Cookies: {'cargadas (' + ARCHIVO_COOKIES + ')' if HAY_COOKIES else 'no hay (recomendadas para servidores en la nube)'}")
+    print("⚠️ JS Runtime: NO encontrado (se usará cliente Android nativo)")
+print(f"🍪 Cookies: {'cargadas (' + ARCHIVO_COOKIES + ')' if HAY_COOKIES else 'no hay'}")
 print(f"🐞 Modo debug yt-dlp: {'activado' if MODO_DEBUG else 'desactivado'}")
 print("----------------------------------------")
 
 
 def opciones_yt(**extra):
-    """Opciones comunes de yt-dlp para todo el bot. Pasa claves extra para sobrescribir."""
+    """
+    Opciones optimizadas para servidores en la nube (Render / AWS).
+    Usa el cliente Android y salta la descarga de la web para eludir el bloqueo
+    'Failed to extract any player response' que YouTube impone a IPs de datacenter.
+    """
     opciones = {
         'format': 'bestaudio/best',
         'noplaylist': True,
@@ -110,6 +106,39 @@ def opciones_yt(**extra):
         'no_warnings': False,
         'default_search': 'ytsearch',
         'remote_components': ['ejs:github'],
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android'],
+                'player_skip': ['webpage']
+            }
+        }
+    }
+
+    if JS_TIPO and JS_PATH:
+        opciones['js_runtimes'] = {JS_TIPO: {'path': JS_PATH}}
+
+    if HAY_COOKIES and ARCHIVO_COOKIES:
+        opciones['cookiefile'] = ARCHIVO_COOKIES
+
+    opciones.update(extra)
+    return opciones
+
+
+def opciones_yt_fallback(**extra):
+    """Estrategia de respaldo multicliente por si el cliente Android sufriera alguna restricción."""
+    opciones = {
+        'format': 'bestaudio/best',
+        'noplaylist': True,
+        'quiet': not MODO_DEBUG,
+        'verbose': MODO_DEBUG,
+        'no_warnings': False,
+        'default_search': 'ytsearch',
+        'remote_components': ['ejs:github'],
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'ios', 'web']
+            }
+        }
     }
 
     if JS_TIPO and JS_PATH:

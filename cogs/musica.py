@@ -12,7 +12,7 @@ import imageio_ffmpeg
 from discord.ext import commands, tasks
 from discord import app_commands
 
-from utilidades_yt import opciones_yt
+from utilidades_yt import opciones_yt, opciones_yt_fallback
 from keep_alive import actualizar_info
 from db import buscar_canciones
 
@@ -141,15 +141,25 @@ def crear_fuente_audio(info):
 
 
 async def extraer_info(url):
-    """Extrae los metadatos y stream de audio con yt-dlp, desenvolviendo búsquedas si es necesario."""
+    """Extrae los metadatos y stream de audio con yt-dlp, con estrategia de cliente Android y respaldo multicliente."""
     def extraer():
-        with yt_dlp.YoutubeDL(opciones_yt()) as ydl:
-            datos = ydl.extract_info(url, download=False)
-            if datos and 'entries' in datos:
-                entradas = [e for e in datos['entries'] if e]
-                if entradas:
-                    return entradas[0]
-            return datos
+        try:
+            with yt_dlp.YoutubeDL(opciones_yt()) as ydl:
+                datos = ydl.extract_info(url, download=False)
+                if datos and 'entries' in datos:
+                    entradas = [e for e in datos['entries'] if e]
+                    if entradas:
+                        return entradas[0]
+                return datos
+        except Exception as e_primero:
+            print(f"Aviso: Extracción con cliente principal falló ({e_primero}). Intentando cliente de respaldo...")
+            with yt_dlp.YoutubeDL(opciones_yt_fallback()) as ydl:
+                datos = ydl.extract_info(url, download=False)
+                if datos and 'entries' in datos:
+                    entradas = [e for e in datos['entries'] if e]
+                    if entradas:
+                        return entradas[0]
+                return datos
     return await asyncio.to_thread(extraer)
 
 
