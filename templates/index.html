@@ -112,6 +112,10 @@
             color: #ed4245;
             text-shadow: 0 0 12px rgba(237, 66, 69, 0.6);
         }
+        .estado-texto.ratelimit {
+            color: #ff9800;
+            text-shadow: 0 0 12px rgba(255, 152, 0, 0.6);
+        }
 
         .caja-info {
             background: rgba(0, 0, 0, 0.35);
@@ -190,6 +194,13 @@
 
                         // Sigue refrescando cada 15 segundos para mantener activo Render si la pestaña está abierta
                         setTimeout(comprobarEstado, 15000);
+                    } else if (datos.estado === "ratelimit") {
+                        anillo.className = "avatar-container apagado";
+                        texto.className = "estado-texto ratelimit";
+                        texto.innerHTML = "🟠 ESPERANDO COOLDOWN DISCORD";
+                        descripcion.innerHTML = "Discord ha limitado temporalmente la IP compartida del servidor. El bot esperará unos minutos sin saturar la API para poder conectarse.";
+                        contenedorMusica.style.display = "none";
+                        setTimeout(comprobarEstado, 8000);
                     } else if (datos.estado === "error") {
                         anillo.className = "avatar-container error";
                         texto.className = "estado-texto error-texto";
