@@ -10,6 +10,7 @@ pip install --no-cache-dir -U -r requirements.txt
 #    Se instala dentro de la carpeta del proyecto para que siga disponible al arrancar el bot
 echo "Instalando Deno..."
 curl -fsSL https://deno.land/install.sh | DENO_INSTALL="$(pwd)/.deno" sh -s -- -y
+chmod +x ./.deno/bin/deno 2>/dev/null || true
 ./.deno/bin/deno --version
 
 echo "Build completado correctamente."

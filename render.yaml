@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: zazy-dj
+    env: python
+    plan: free
+    buildCommand: bash build.sh
+    startCommand: python main.py
+    envVars:
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: YTDLP_DEBUG
+        value: "0"

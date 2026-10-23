@@ -13,28 +13,30 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
-            overflow: hidden;
+            padding: 20px;
+            box-sizing: border-box;
         }
         .tarjeta {
-            background-color: rgba(20, 15, 40, 0.7);
-            padding: 40px;
+            background-color: rgba(20, 15, 40, 0.75);
+            padding: 35px 30px;
             border-radius: 20px;
-            box-shadow: 0 0 20px rgba(255, 0, 255, 0.15), 0 0 30px rgba(0, 255, 255, 0.1);
-            border: 1px solid rgba(255, 0, 255, 0.3);
+            box-shadow: 0 0 25px rgba(255, 0, 255, 0.2), 0 0 35px rgba(0, 255, 255, 0.15);
+            border: 1px solid rgba(255, 0, 255, 0.35);
             text-align: center;
-            max-width: 400px;
-            backdrop-filter: blur(12px);
+            max-width: 440px;
+            width: 100%;
+            backdrop-filter: blur(14px);
         }
         
         .avatar-container {
-            margin: 0 auto 25px auto;
-            width: 160px;
-            height: 160px;
+            margin: 0 auto 20px auto;
+            width: 150px;
+            height: 150px;
             border-radius: 50%;
             padding: 6px;
-            transition: all 0.8s ease-in-out;
+            transition: all 0.6s ease-in-out;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -45,6 +47,7 @@
             border: 4px solid #4f545c;
             box-shadow: 0 0 15px rgba(79, 84, 92, 0.5);
             filter: grayscale(80%) brightness(0.7);
+            animation: pulse-gray 2s infinite ease-in-out;
         }
         
         /* Estado 2: Encendido */
@@ -61,6 +64,12 @@
             filter: grayscale(0%) brightness(1);
         }
 
+        @keyframes pulse-gray {
+            0% { transform: scale(0.98); opacity: 0.8; }
+            50% { transform: scale(1.02); opacity: 1; }
+            100% { transform: scale(0.98); opacity: 0.8; }
+        }
+
         .avatar-img {
             width: 100%;
             height: 100%;
@@ -71,8 +80,9 @@
         h1 {
             color: #00ffff;
             text-shadow: 0 0 12px rgba(0, 255, 255, 0.6);
-            margin-top: 0;
+            margin: 0 0 10px 0;
             letter-spacing: 1px;
+            font-size: 1.8em;
         }
         .texto-zazy {
             color: #ff00ff;
@@ -80,9 +90,9 @@
         }
         p {
             color: #b5bac1;
-            line-height: 1.6;
-            margin-bottom: 25px;
-            min-height: 70px; /* Evita que la tarjeta salte al cambiar el texto */
+            line-height: 1.5;
+            margin-bottom: 20px;
+            font-size: 0.95em;
         }
 
         .estado-texto {
@@ -91,15 +101,41 @@
             letter-spacing: 1px;
             transition: color 0.5s ease;
             text-transform: uppercase;
+            margin-bottom: 15px;
         }
-        .estado-texto.iniciando { color: #80848e; }
+        .estado-texto.iniciando { color: #f0b232; text-shadow: 0 0 10px rgba(240, 178, 50, 0.4); }
         .estado-texto.activo {
             color: #23a559;
-            text-shadow: 0 0 10px rgba(35, 165, 89, 0.5);
+            text-shadow: 0 0 12px rgba(35, 165, 89, 0.6);
         }
         .estado-texto.error-texto {
             color: #ed4245;
-            text-shadow: 0 0 10px rgba(237, 66, 69, 0.5);
+            text-shadow: 0 0 12px rgba(237, 66, 69, 0.6);
+        }
+
+        .caja-info {
+            background: rgba(0, 0, 0, 0.35);
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-top: 15px;
+            font-size: 0.88em;
+            border-left: 3px solid #00ffff;
+            text-align: left;
+        }
+
+        .caja-info b {
+            color: #00ffff;
+        }
+
+        .pildora-alerta {
+            display: inline-block;
+            background: rgba(255, 0, 255, 0.15);
+            border: 1px solid rgba(255, 0, 255, 0.4);
+            border-radius: 15px;
+            padding: 5px 12px;
+            font-size: 0.78em;
+            color: #f7a9ff;
+            margin-top: 15px;
         }
     </style>
 </head>
@@ -110,10 +146,19 @@
         </div>
         
         <h1>Panel de <span class="texto-zazy">ZAZY</span></h1>
-        <!-- AÑADIDO: ID al párrafo para poder modificarlo con JS -->
-        <p id="descripcion-estado">Señal enviada a los servidores. La mesa de mezclas se está encendiendo...</p>
         
         <div class="estado-texto iniciando" id="texto-estado">⚪ Despertando sistema...</div>
+
+        <p id="descripcion-estado">Señal enviada a los servidores. La mesa de mezclas se está encendiendo...</p>
+
+        <div id="contenedor-musica" class="caja-info" style="display: none;">
+            <div>💿 <b>Sonando:</b> <span id="nombre-cancion">Ninguna</span></div>
+            <div style="margin-top: 5px;">📋 <b>En cola:</b> <span id="conteo-cola">0</span> canción(es)</div>
+        </div>
+
+        <div class="pildora-alerta">
+            ⚡ <b>Tip:</b> Entrar a este enlace enciende al bot en Discord.
+        </div>
     </div>
 
     <!-- Script de conexión con la API -->
@@ -124,28 +169,48 @@
                 .then(datos => {
                     const anillo = document.getElementById('anillo-estado');
                     const texto = document.getElementById('texto-estado');
-                    const descripcion = document.getElementById('descripcion-estado'); // Capturamos el párrafo
+                    const descripcion = document.getElementById('descripcion-estado');
+                    const contenedorMusica = document.getElementById('contenedor-musica');
+                    const nombreCancion = document.getElementById('nombre-cancion');
+                    const conteoCola = document.getElementById('conteo-cola');
                     
                     if (datos.estado === "encendido") {
                         anillo.className = "avatar-container encendido";
                         texto.className = "estado-texto activo";
                         texto.innerHTML = "🟢 MODO DJ: ONLINE";
-                        descripcion.innerHTML = "El motor está 100% operativo y conectado a Discord. Zazy DJ está listo para reventar los canales de voz.";
+                        descripcion.innerHTML = "El bot está 100% operativo y conectado a Discord. Puedes usar <code>/play</code> en cualquier canal de voz.";
+
+                        if (datos.cancion_actual) {
+                            contenedorMusica.style.display = "block";
+                            nombreCancion.textContent = datos.cancion_actual;
+                            conteoCola.textContent = datos.cola_longitud || 0;
+                        } else {
+                            contenedorMusica.style.display = "none";
+                        }
+
+                        // Sigue refrescando cada 15 segundos para mantener activo Render si la pestaña está abierta
+                        setTimeout(comprobarEstado, 15000);
                     } else if (datos.estado === "error") {
                         anillo.className = "avatar-container error";
                         texto.className = "estado-texto error-texto";
                         texto.innerHTML = "🔴 ERROR EN EL SISTEMA";
-                        descripcion.innerHTML = "Se ha producido un error crítico al arrancar los servidores. Revisa la consola de Render para más detalles.";
+                        descripcion.innerHTML = "Se ha producido un error al arrancar. Revisa los logs de la consola en Render.";
+                        contenedorMusica.style.display = "none";
+                        setTimeout(comprobarEstado, 6000);
                     } else {
                         // Modo iniciando
                         anillo.className = "avatar-container apagado";
                         texto.className = "estado-texto iniciando";
                         texto.innerHTML = "⚪ Despertando sistema...";
-                        descripcion.innerHTML = "Señal enviada a los servidores. La mesa de mezclas se está encendiendo...";
+                        descripcion.innerHTML = "Señal enviada a los servidores. La mesa de mezclas se está encendiendo (tarda ~30s si estaba dormido)...";
+                        contenedorMusica.style.display = "none";
                         setTimeout(comprobarEstado, 2000);
                     }
                 })
-                .catch(error => console.error("Error de conexión:", error));
+                .catch(error => {
+                    console.error("Error de conexión:", error);
+                    setTimeout(comprobarEstado, 3000);
+                });
         }
 
         comprobarEstado();

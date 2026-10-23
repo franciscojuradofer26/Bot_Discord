@@ -2,34 +2,22 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import psycopg2
-import os
 import re
 import yt_dlp
 import asyncio
-from dotenv import load_dotenv
 from utilidades_yt import opciones_yt
+from db import registrar_cancion, inicializar_db
 
-load_dotenv()
+# Inicializamos la tabla al cargar el cog si la base de datos está disponible
+inicializar_db()
 
-# Configuración de la BBDD para este módulo (PostgreSQL)
-conexion = psycopg2.connect(os.getenv("DATABASE_URL"))
-conexion.autocommit = True
-cursor = conexion.cursor()
-
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS canciones (
-        enlace TEXT PRIMARY KEY,
-        nombre TEXT,
-        artista TEXT
-    )
-''')
-conexion.commit()
-
-ADMIN_IDS = [1014250698612944976,1140072371500363887,472140234822516743,
-            806948074287136820,1345376311283159052,1016855844312326194,
-            825133272617975829,1383012295600504966,1118290829304406141,
-            1135693655353610321,956949020318785576,797108474805878784,
-            882671505056628776]
+ADMIN_IDS = [
+    1014250698612944976, 1140072371500363887, 472140234822516743,
+    806948074287136820, 1345376311283159052, 1016855844312326194,
+    825133272617975829, 1383012295600504966, 1118290829304406141,
+    1135693655353610321, 956949020318785576, 797108474805878784,
+    882671505056628776
+]
 
 def es_admin():
     def predicate(interaction: discord.Interaction):
@@ -68,11 +56,13 @@ class Admin(commands.Cog):
             return
 
         try:
-            cursor.execute("INSERT INTO canciones (enlace, nombre, artista) VALUES (%s, %s, %s)", (enlace, nombre, artista))
+            registrar_cancion(enlace, nombre, artista)
             await interaction.followup.send(f"✅ ¡Éxito! **{nombre}** de **{artista}** guardada en tu base de datos.")
         except psycopg2.IntegrityError:
             await interaction.followup.send("⚠️ Esa canción (enlace) ya estaba registrada.")
+        except Exception as e:
+            print(f"Error guardando canción: {e}")
+            await interaction.followup.send(f"❌ Error al guardar en la base de datos: {e}")
 
-# Función obligatoria para que main.py pueda cargar este archivo
 async def setup(bot):
     await bot.add_cog(Admin(bot))
